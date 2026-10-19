@@ -1,0 +1,73 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <OutputPath>$(SolutionDir)Output\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="C# Ripp\**" />
+    <EmbeddedResource Remove="C# Ripp\**" />
+    <None Remove="C# Ripp\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
+	  
+	  
+    <Reference Include="0Harmony">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\MelonLoader\net6\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Core">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FishNet.Runtime">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\FishNet.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Managers.Interface">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Managers.Interface.dll</HintPath>
+    </Reference>
+    <Reference Include="Players">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Players.dll</HintPath>
+    </Reference>
+    <Reference Include="Players.Interface">
+      <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Players.Interface.dll</HintPath>
+    </Reference>
+    <Reference Include="ReferencedAssemblies\MelonLoader.dll" />
+	<Reference Include="ReferencedAssemblies\UnityEngine.dll" />
+	<Reference Include="ReferencedAssemblies\UnityEngine.CoreModule.dll" />
+	<Reference Include="Saving">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Saving.dll</HintPath>
+	</Reference>
+	<Reference Include="Saving.Serialization">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Saving.Serialization.dll</HintPath>
+	</Reference>
+	<Reference Include="Ships" Publicize="true">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Ships.dll</HintPath>
+	</Reference>
+	<Reference Include="Ships.Interface">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Ships.Interface.dll</HintPath>
+	</Reference>
+	<Reference Include="UI">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UI.dll</HintPath>
+	</Reference>
+	<Reference Include="Unity.Localization">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.Localization.dll</HintPath>
+	</Reference>
+	<Reference Include="Unity.TextMeshPro">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+	</Reference>
+	  <Reference Include="Unity.Localization">
+        <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.Localization.dll</HintPath>
+    </Reference>	  
+	<Reference Include="UnityEngine.UIElementsModule">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+	</Reference>
+  </ItemGroup>
+</Project>

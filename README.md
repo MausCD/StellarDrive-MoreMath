@@ -2,7 +2,7 @@
 
 MoreMath expands the Signal Combinator and Signal Processor with additional math operations and stateful logic.
 
-All My Mods ar listed on https://stellardrive.mauscd.de
+All My Mods are listed on https://stellardrive.mauscd.de
 
 ## Features
 

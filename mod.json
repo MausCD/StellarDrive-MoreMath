@@ -4,5 +4,7 @@
     "author": "MausCD",
     "version": "1.0.0",
     "description": "Adds More Math Operations",
-    "thumbnail": "thumbnail.png"
+    "thumbnail": "thumbnail.png",
+    "ai": "ai-assisted",
+    "development": "active"
 }

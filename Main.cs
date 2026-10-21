@@ -32,6 +32,7 @@ using TMPro;
 using UI.BuildMenu;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.Windows;
 using static UnityEngine.Random;
 using OperationType =
     Ships.Cables.SignalConnectionsServerUpdater.OperationType;
@@ -46,24 +47,41 @@ namespace MoreMath
         public const string Description = "Adds More Math Operations";
         public const string Author = "MausCD";
         public const string Company = null;
-        public const string Version = "1.0.0";
-        public const string DownloadLink = null;
+        public const string Version = "1.1.0";
+        public const string DownloadLink = "https://github.com/MausCD/StellarDrive-MoreMath/releases";
     }
 
     public class MoreMath : MelonMod
     {
+        public static MelonPreferences_Category Category;
+        public static MelonPreferences_Entry<bool> ReplaceTexture;
+        public static MelonPreferences_Entry<bool> SaveStatus;
+
+        public override void OnInitializeMelon()
+        {
+            MoreMath.Category = MelonPreferences.CreateCategory("MoreMath");
+            MoreMath.ReplaceTexture = MoreMath.Category.CreateEntry<bool>("ReplaceTexture", true, null, "Replaces the Signal Processor and Signal Combinator Textures to Display (I)nput and (Q)utput", false, false, null, null);
+            MoreMath.SaveStatus = MoreMath.Category.CreateEntry<bool>("SaveStatus", true, null, "Saves the Signal Status of the RS , SR and Toggle Function", false, false, null, null);
+        }
+
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
-            // This checks if the game scene loaded
             if (buildIndex != 1) return;
 
-            MelonLogger.Msg("This mod seems to work");
+            MelonLogger.Msg("Thanks for Using my Mod ^^ More on https://stellardrive.mauscd.de");
         }
 
         public override void OnSceneWasUnloaded(int buildIndex, string sceneName)
         {
-            // This checks if the game scene unloaded
             if (buildIndex != 1) return;
+        }
+
+        public override void OnUpdate()
+        {
+            if (MoreMath.ReplaceTexture.Value)
+            {
+                LogicGatesTextureReplacement.Update();
+            }
         }
     }
 
@@ -77,6 +95,9 @@ namespace MoreMath
         Clamp = 15,
         RS = 16,
         SR = 17,
+        OnDelay = 18,
+        OffDelay = 19,
+        Log = 20,
     }
 
     public enum CustomSignalOperation : byte
@@ -89,7 +110,7 @@ namespace MoreMath
     [HarmonyPatch(typeof(MathGateInteraction), "Interact")]
     public static class MathGateInteractionPatch
     {
-        private static bool Prefix(MathGateInteraction __instance, InteractionType type, PartContext ___PartContext , IShipInteractionNetworkService ___InteractionService , ref bool __result)
+        private static bool Prefix(MathGateInteraction __instance, InteractionType type, PartContext ___PartContext, IShipInteractionNetworkService ___InteractionService, ref bool __result)
         {
             if (type != InteractionType.Interact)
             {
@@ -161,10 +182,10 @@ namespace MoreMath
     }
 
 
-    [HarmonyPatch(typeof(ShipInteractionService),"RpcLogic___ChangeMathOperation_ServerRPC___2879021062")]
+    [HarmonyPatch(typeof(ShipInteractionService), "RpcLogic___ChangeMathOperation_ServerRPC___2879021062")]
     public static class ShipInteractionServicePatch
     {
-        private static bool Prefix(ShipInteractionService __instance,MathOperationNetworkRequest __0,NetworkConnection __1)
+        private static bool Prefix(ShipInteractionService __instance, MathOperationNetworkRequest __0, NetworkConnection __1)
         {
             var request = __0;
             var connection = __1;
@@ -258,7 +279,7 @@ namespace MoreMath
     [HarmonyPatch(typeof(MathGateVisuals), "SetNetworkState")]
     public static class MathGateVisualsPatch
     {
-        private static void Postfix(MathGateVisuals __instance, IStatefulPartState state , TMP_Text ___textField)
+        private static void Postfix(MathGateVisuals __instance, IStatefulPartState state, TMP_Text ___textField)
         {
             if (state is not MathGateState mathState)
             {
@@ -288,9 +309,17 @@ namespace MoreMath
                 case CustomMathOperation.RS:
                     ___textField.text = "RS";
                     break;
-
                 case CustomMathOperation.SR:
                     ___textField.text = "SR";
+                    break;
+                case CustomMathOperation.OnDelay:
+                    ___textField.text = "TON";
+                    break;
+                case CustomMathOperation.OffDelay:
+                    ___textField.text = "TOF";
+                    break;
+                case CustomMathOperation.Log:
+                    ___textField.text = "Log";
                     break;
             }
         }
@@ -317,7 +346,7 @@ namespace MoreMath
                 case CustomSignalOperation.Toggle:
                     text = "Toggle";
                     break;
-                    
+
                 default:
                     return;
             }
@@ -426,6 +455,10 @@ namespace MoreMath
                             EntityId = ship.Id,
                             Socket = new PartSocket(part.Id, 1)
                         });
+                        if (mathGateState.Operation != (MathGateOperation)CustomMathOperation.OnDelay && mathGateState.Operation != (MathGateOperation)CustomMathOperation.OffDelay) 
+                        {
+                            CombinatorTimers.Reset(part);
+                        }
                         double output2 = mathGateState.Operation switch
                         {
                             MathGateOperation.Multiply => socketSignalValue4 * socketSignalValue5,
@@ -439,13 +472,16 @@ namespace MoreMath
                             MathGateOperation.GreaterThan => (socketSignalValue4 > socketSignalValue5) ? 1 : 0,
                             MathGateOperation.Equals => (socketSignalValue4 == socketSignalValue5) ? 1 : 0,
                             (MathGateOperation)CustomMathOperation.Power => Math.Pow(socketSignalValue4, socketSignalValue5),
-                            (MathGateOperation)CustomMathOperation.Round => Math.Round((Math.Pow(10, socketSignalValue5) * socketSignalValue4))/ Math.Pow(10, socketSignalValue5),
+                            (MathGateOperation)CustomMathOperation.Round => Math.Round((Math.Pow(10, socketSignalValue5) * socketSignalValue4)) / Math.Pow(10, socketSignalValue5),
                             (MathGateOperation)CustomMathOperation.LesserSameThan => ((socketSignalValue4 < socketSignalValue5) || socketSignalValue4 == socketSignalValue5) ? 1 : 0,
                             (MathGateOperation)CustomMathOperation.GreaterSameThan => ((socketSignalValue4 > socketSignalValue5) || socketSignalValue4 == socketSignalValue5) ? 1 : 0,
                             (MathGateOperation)CustomMathOperation.Clamp => Math.Clamp(socketSignalValue4, -Math.Abs(socketSignalValue5), Math.Abs(socketSignalValue5)),
                             (MathGateOperation)CustomMathOperation.Rest => socketSignalValue5 == 0.0 ? 0.0 : socketSignalValue4 % socketSignalValue5,
                             (MathGateOperation)CustomMathOperation.RS => socketSignalValue5 > 0.0 ? 0.0 : socketSignalValue4 > 0.0 ? 1.0 : (mathGateState.Output > 0.0 ? 1.0 : 0.0),
                             (MathGateOperation)CustomMathOperation.SR => socketSignalValue4 > 0.0 ? 1.0 : socketSignalValue5 > 0.0 ? 0.0 : (mathGateState.Output > 0.0 ? 1.0 : 0.0),
+                            (MathGateOperation)CustomMathOperation.OnDelay => CombinatorTimers.Evaluate(part, CustomMathOperation.OnDelay, socketSignalValue4, socketSignalValue5, deltaTime),
+                            (MathGateOperation)CustomMathOperation.OffDelay => CombinatorTimers.Evaluate(part, CustomMathOperation.OffDelay, socketSignalValue4, socketSignalValue5, deltaTime),
+                            (MathGateOperation)CustomMathOperation.Log => socketSignalValue4 > 0.0 && !double.IsInfinity(socketSignalValue4) && socketSignalValue5 > 0.0 && socketSignalValue5 != 1.0 && !double.IsInfinity(socketSignalValue5) ? Math.Log(socketSignalValue4, socketSignalValue5) : 0.0,
                             _ => 0.0,
                         };
                         MathGateState state5 = mathGateState with
@@ -495,7 +531,7 @@ namespace MoreMath
     "Min, Max, Atan2, Less than (<), Greater than (>), Equal (=).\n" +
     "\nMoreMath:\n" +
     "Power (^), Round, Less or equal (≤), Greater or equal (≥), " +
-    "Remainder (%), Clamp , RS , SR";
+    "Remainder (%), Clamp , RS , SR , TON , TOF , Log";
             }
             else if (stateClass == typeof(SignalProcessorState).FullName ||
                      settings.fullLabel == "Signal Processor")
@@ -572,6 +608,7 @@ namespace MoreMath
             Ships.Interface.Model.State.IShipState __0,
             ref Saving.Serialization.V15.Ships.SerializableShip __result)
         {
+            if (!MoreMath.SaveStatus.Value) return;
             var partsById = __0.StatefulParts
                 .ToDictionary(part => part.Id);
 
@@ -629,6 +666,8 @@ namespace MoreMath
     {
         private static void Postfix(StatefulPart[] __result)
         {
+            if (!MoreMath.SaveStatus.Value) return;
+
             if (__result == null)
                 return;
 
@@ -671,6 +710,216 @@ namespace MoreMath
                     };
                 }
             }
+        }
+    }
+
+    internal static class LogicGatesTextureReplacement
+    {
+        private static Texture2D? replacement;
+        private static bool loadAttempted;
+        private static float nextCheck;
+
+        public static void Update()
+        {
+            // Nur alle 5 Sekunden prüfen, nicht in jedem Frame.
+            if (Time.realtimeSinceStartup < nextCheck)
+                return;
+
+            nextCheck = Time.realtimeSinceStartup + 5f;
+
+            if (!loadAttempted)
+            {
+                loadAttempted = true;
+                LoadTexture();
+            }
+
+            if (replacement == null)
+                return;
+
+            foreach (Material material in
+                     Resources.FindObjectsOfTypeAll<Material>())
+            {
+                if (material == null)
+                    continue;
+
+                if (material.name != "LogicGates" &&
+                    material.name != "LogicGates (Instance)")
+                {
+                    continue;
+                }
+
+                if (!material.HasProperty("_Albedo"))
+                    continue;
+
+                // Bereits ersetzte Texturen nicht erneut setzen.
+                if (material.GetTexture("_Albedo") == replacement)
+                    continue;
+
+                material.SetTexture("_Albedo", replacement);
+            }
+        }
+
+        private static void LoadTexture()
+        {
+            try
+            {
+                var assembly =
+                    typeof(LogicGatesTextureReplacement).Assembly;
+
+                string resourceName = assembly
+                    .GetManifestResourceNames()
+                    .FirstOrDefault(name =>
+                        name == "8304ebbf.png" ||
+                        name.EndsWith(
+                            ".8304ebbf.png",
+                            StringComparison.OrdinalIgnoreCase));
+
+                if (resourceName == null)
+                {
+                    MelonLogger.Error(
+                        "8304ebbf.png not found. " +
+                        "Set its Build Action to Embedded Resource.");
+                    return;
+                }
+
+                using var stream =
+                    assembly.GetManifestResourceStream(resourceName);
+
+                if (stream == null)
+                {
+                    MelonLogger.Error("Could not open texture resource.");
+                    return;
+                }
+
+                using var buffer = new System.IO.MemoryStream();
+                stream.CopyTo(buffer);
+
+                var texture = new Texture2D(2, 2);
+
+                if (!ImageConversion.LoadImage(texture, buffer.ToArray()))
+                {
+                    UnityEngine.Object.Destroy(texture);
+                    MelonLogger.Error("Could not decode 8304ebbf.png.");
+                    return;
+                }
+
+                texture.name = "MoreMath_LogicGates_Replacement";
+                UnityEngine.Object.DontDestroyOnLoad(texture);
+
+                replacement = texture;
+                MelonLogger.Msg("Embedded texture loaded.");
+            }
+            catch (Exception exception)
+            {
+                MelonLogger.Error(
+                    $"Texture loading failed: {exception}");
+            }
+        }
+    }
+
+    internal static class CombinatorTimers
+    {
+        private sealed class TimerState
+        {
+            public byte Operation;
+            public double Elapsed;
+            public bool Output;
+            public bool PreviousInput;
+        }
+
+        private static readonly
+            System.Runtime.CompilerServices.ConditionalWeakTable<
+                StatefulPart, TimerState> States = new();
+
+        public static void Reset(StatefulPart part)
+        {
+            States.Remove(part);
+        }
+
+        public static double Evaluate(
+            StatefulPart part,
+            CustomMathOperation operation,
+            double a,
+            double b,
+            float deltaTime)
+        {
+            byte operationId = (byte)operation;
+
+            if (!States.TryGetValue(part, out var timer) ||
+                timer.Operation != operationId)
+            {
+                States.Remove(part);
+
+                timer = new TimerState
+                {
+                    Operation = operationId
+                };
+
+                States.Add(part, timer);
+            }
+
+            bool input = a > 0.0;
+
+            double delay =
+                double.IsNaN(b) || b < 0.0 ? 0.0 : b;
+
+            double dt =
+                float.IsNaN(deltaTime) ||
+                float.IsInfinity(deltaTime) ||
+                deltaTime < 0f
+                    ? 0.0
+                    : deltaTime;
+
+            switch (operation)
+            {
+                case CustomMathOperation.OnDelay:
+                    if (!input)
+                    {
+                        timer.Elapsed = 0.0;
+                        timer.Output = false;
+                    }
+                    else
+                    {
+                        // Beim ersten erkannten Einschalten
+                        // beginnt die Zeit bei null.
+                        timer.Elapsed = timer.PreviousInput
+                            ? timer.Elapsed + dt
+                            : 0.0;
+
+                        timer.Output = timer.Elapsed >= delay;
+                    }
+                    break;
+
+                case CustomMathOperation.OffDelay:
+                    if (input)
+                    {
+                        timer.Elapsed = 0.0;
+                        timer.Output = true;
+                    }
+                    else if (timer.Output)
+                    {
+                        // Beim ersten erkannten Abschalten
+                        // beginnt der Nachlauf bei null.
+                        timer.Elapsed = timer.PreviousInput
+                            ? 0.0
+                            : timer.Elapsed + dt;
+
+                        if (timer.Elapsed >= delay)
+                        {
+                            timer.Output = false;
+                            timer.Elapsed = 0.0;
+                        }
+                    }
+                    else
+                    {
+                        timer.Elapsed = 0.0;
+                    }
+                    break;
+            }
+
+            timer.PreviousInput = input;
+
+            return timer.Output ? 1.0 : 0.0;
         }
     }
 }

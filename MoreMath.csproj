@@ -15,6 +15,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="8304ebbf.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="8304ebbf.png" />
+  </ItemGroup>
+
+  <ItemGroup>
 	  <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
 	  
 	  
@@ -57,6 +65,9 @@
 	<Reference Include="UI">
 	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UI.dll</HintPath>
 	</Reference>
+	<Reference Include="Unity.InputSystem">
+	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.InputSystem.dll</HintPath>
+	</Reference>
 	<Reference Include="Unity.Localization">
 	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.Localization.dll</HintPath>
 	</Reference>
@@ -65,7 +76,13 @@
 	</Reference>
 	  <Reference Include="Unity.Localization">
         <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\Unity.Localization.dll</HintPath>
-    </Reference>	  
+    </Reference>
+	  <Reference Include="UnityEngine.ImageConversionModule">
+	    <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+	  </Reference>
+	  <Reference Include="UnityEngine.InputLegacyModule">
+	    <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+	  </Reference>	  
 	<Reference Include="UnityEngine.UIElementsModule">
 	  <HintPath>D:\SteamLibrary\steamapps\common\StellarDrive Demo\StellarDrive_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
 	</Reference>

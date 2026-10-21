@@ -4,5 +4,7 @@
     "author": "MausCD",
     "version": "1.0.0",
     "description": "Adds More Math Operations \n ^ - Power \n % - Modulus \n ≤ - Less than or equal to \n ≥ - Greater than or equal to \n Clamp \n RS / SR \n TON / TOF \n Log \n Floor \n Toggle \n\n Every Player needs this Mod",
-    "thumbnail": "thumbnail.png"
+    "thumbnail": "thumbnail.png",
+    "ai": "ai-assisted",
+    "development": "active"
 }

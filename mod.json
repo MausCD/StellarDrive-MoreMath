@@ -1,10 +1,18 @@
 {
-    "id": "MoreMath",
-    "name": "More Math",
-    "author": "MausCD",
-    "version": "1.1.0",
-    "description": "Adds More Math Operations \n ^ - Power \n % - Modulus \n ≤ - Less than or equal to \n ≥ - Greater than or equal to \n Clamp \n RS / SR \n TON / TOF \n Log \n Floor \n Toggle \n\n Every Player needs this Mod",
-    "thumbnail": "thumbnail.png",
-    "ai": "ai-assisted",
-    "development": "active"
+  "id": "MoreMath",
+  "name": "More Math",
+  "author": "MausCD",
+  "version": "1.1.0",
+  "description": "Adds More Math Operations \\n ^ - Power \\n % - Modulus \\n ≤ - Less than or equal to \\n ≥ - Greater than or equal to \\n Clamp \\n RS / SR \\n TON / TOF \\n Log \\n Floor \\n Toggle \\n\\n Every Player needs this Mod",
+  "thumbnail": "thumbnail.png",
+  "images": [],
+  "ai": "ai-assisted",
+  "development": "active",
+  "tags": [
+    "automation",
+    "signals",
+    "quality-of-life",
+    "logic-gates",
+    "math"
+  ]
 }

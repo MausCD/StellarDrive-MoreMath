@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Xml;
 using Core.Services;
+using Core.Values;
 using FishNet.Connection;
 using HarmonyLib;
 using Managers.Interface;
@@ -30,7 +32,12 @@ using Ships.Parts.UnaryMathGate;
 using Ships.Services;
 using TMPro;
 using UI.BuildMenu;
+using UI.Common;
+using UI.Interface;
+using UI.Interface.Model;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using UnityEngine.UIElements;
 using UnityEngine.Windows;
 using static UnityEngine.Random;
@@ -47,7 +54,7 @@ namespace MoreMath
         public const string Description = "Adds More Math Operations";
         public const string Author = "MausCD";
         public const string Company = null;
-        public const string Version = "1.1.0";
+        public const string Version = "1.2.0";
         public const string DownloadLink = "https://github.com/MausCD/StellarDrive-MoreMath/releases";
     }
 
@@ -56,14 +63,16 @@ namespace MoreMath
         public static MelonPreferences_Category Category;
         public static MelonPreferences_Entry<bool> ReplaceTexture;
         public static MelonPreferences_Entry<bool> SaveStatus;
+        public static MelonPreferences_Entry<bool> EnableMenu;
 
         public override void OnInitializeMelon()
         {
             MoreMath.Category = MelonPreferences.CreateCategory("MoreMath");
             MoreMath.ReplaceTexture = MoreMath.Category.CreateEntry<bool>("ReplaceTexture", true, null, "Replaces the Signal Processor and Signal Combinator Textures to Display (I)nput and (Q)utput", false, false, null, null);
             MoreMath.SaveStatus = MoreMath.Category.CreateEntry<bool>("SaveStatus", true, null, "Saves the Signal Status of the RS , SR and Toggle Function", false, false, null, null);
+            MoreMath.EnableMenu = MoreMath.Category.CreateEntry<bool>("EnableMenu", true, null, "Enables the Selector Menu instead of switching thru all Operators", false, false, null, null);
         }
-
+        
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             if (buildIndex != 1) return;
@@ -98,14 +107,27 @@ namespace MoreMath
         OnDelay = 18,
         OffDelay = 19,
         Log = 20,
+        Or = 21,
+        Xor = 22,
+        Nand = 23,
+        Nor = 24,
+        NotEuqal = 25,
+        Hypot = 26,
+        Deadband = 27,
+        SchmittTrigger = 28,
     }
 
     public enum CustomSignalOperation : byte
     {
         Floor = 10,
         Toggle = 11,
+        OneWay = 12,
+        Ceil = 13,
+        Not = 14,
+        Sign = 15,
+        Integrator = 16,
+        Exp = 17,
     }
-
 
     [HarmonyPatch(typeof(MathGateInteraction), "Interact")]
     public static class MathGateInteractionPatch
@@ -116,6 +138,14 @@ namespace MoreMath
             {
                 return true;
             }
+
+            if (MoreMath.EnableMenu.Value)
+            {
+                NativeOperatorSelectorUI.Open(true, ___PartContext, ___InteractionService);
+                __result = true;
+                return false;
+            }
+
             if (!ServiceLocator.GetService<ShipsClientTracker>().TryGetPartState<MathGateState>(___PartContext, out var partState))
             {
                 __result = false;
@@ -123,7 +153,6 @@ namespace MoreMath
             }
 
             byte b = (byte)(partState.Operation + 1);
-
             bool isVanilla = Enum.IsDefined(typeof(MathGateOperation), b);
             bool isCustom = Enum.IsDefined(typeof(CustomMathOperation), b);
 
@@ -144,7 +173,6 @@ namespace MoreMath
         }
     }
 
-
     [HarmonyPatch(typeof(SignalProcessorInteraction), "Interact")]
     public static class SignalProcessorInteractionPatch
     {
@@ -154,6 +182,14 @@ namespace MoreMath
             {
                 return true;
             }
+
+            if (MoreMath.EnableMenu.Value)
+            {
+                NativeOperatorSelectorUI.Open(false, ___PartContext, ___InteractionService);
+                __result = true;
+                return false;
+            }
+
             if (!ServiceLocator.GetService<ShipsClientTracker>().TryGetPartState<SignalProcessorState>(___PartContext, out var partState))
             {
                 __result = false;
@@ -161,7 +197,6 @@ namespace MoreMath
             }
 
             byte b = (byte)(partState.Operation + 1);
-
             bool isVanilla = Enum.IsDefined(typeof(SignalProcessorOperation), b);
             bool isCustom = Enum.IsDefined(typeof(CustomSignalOperation), b);
 
@@ -176,6 +211,7 @@ namespace MoreMath
                 PartId = ___PartContext.PartId,
                 OperationId = b
             });
+
             __result = true;
             return false;
         }
@@ -321,6 +357,30 @@ namespace MoreMath
                 case CustomMathOperation.Log:
                     ___textField.text = "Log";
                     break;
+                case CustomMathOperation.Or:
+                    ___textField.text = "OR";
+                    break;
+                case CustomMathOperation.Xor:
+                    ___textField.text = "XOR";
+                    break;
+                case CustomMathOperation.Nand:
+                    ___textField.text = "NAND";
+                    break;
+                case CustomMathOperation.Nor:
+                    ___textField.text = "NOR";
+                    break;
+                case CustomMathOperation.NotEuqal:
+                    ___textField.text = "≠";
+                    break;
+                case CustomMathOperation.Hypot:
+                    ___textField.text = "Hypot";
+                    break;
+                case CustomMathOperation.Deadband:
+                    ___textField.text = "Deadband";
+                    break;
+                case CustomMathOperation.SchmittTrigger:
+                    ___textField.text = "Schmitt";
+                    break;
             }
         }
     }
@@ -345,6 +405,24 @@ namespace MoreMath
                     break;
                 case CustomSignalOperation.Toggle:
                     text = "Toggle";
+                    break;
+                case CustomSignalOperation.OneWay:
+                    text = "->|";
+                    break;
+                case CustomSignalOperation.Ceil:
+                    text = "Ceil";
+                    break;
+                case CustomSignalOperation.Not:
+                    text = "!";
+                    break;
+                case CustomSignalOperation.Sign:
+                    text = "sgn";
+                    break;
+                case CustomSignalOperation.Integrator:
+                    text = "∫";
+                    break;
+                case CustomSignalOperation.Exp:
+                    text = "eˣ";
                     break;
 
                 default:
@@ -403,6 +481,12 @@ namespace MoreMath
                                         SignalProcessorOperation.Delta => (deltaTime == 0f) ? 0.0 : ((socketSignalValue - signalProcessorState.PreviousValue) / (double)deltaTime),
                                         (SignalProcessorOperation)CustomSignalOperation.Floor => Math.Floor(socketSignalValue),
                                         (SignalProcessorOperation)CustomSignalOperation.Toggle => socketSignalValue > 0.0 && signalProcessorState.PreviousValue <= 0.0 ? (signalProcessorState.Output > 0.0 ? 0.0 : 1.0) : (signalProcessorState.Output > 0.0 ? 1.0 : 0.0),
+                                        (SignalProcessorOperation)CustomSignalOperation.OneWay => socketSignalValue,
+                                        (SignalProcessorOperation)CustomSignalOperation.Ceil => Math.Ceiling(socketSignalValue),
+                                        (SignalProcessorOperation)CustomSignalOperation.Not => socketSignalValue > 0.0 ? 0.0 : 1.0,
+                                        (SignalProcessorOperation)CustomSignalOperation.Sign => Math.Sign(socketSignalValue),
+                                        (SignalProcessorOperation)CustomSignalOperation.Integrator => signalProcessorState.Output + (socketSignalValue * (double)deltaTime),
+                                        (SignalProcessorOperation)CustomSignalOperation.Exp => Math.Exp(socketSignalValue),
                                         _ => 0.0,
                                     };
                                     SignalProcessorState state2 = signalProcessorState with
@@ -482,6 +566,14 @@ namespace MoreMath
                             (MathGateOperation)CustomMathOperation.OnDelay => CombinatorTimers.Evaluate(part, CustomMathOperation.OnDelay, socketSignalValue4, socketSignalValue5, deltaTime),
                             (MathGateOperation)CustomMathOperation.OffDelay => CombinatorTimers.Evaluate(part, CustomMathOperation.OffDelay, socketSignalValue4, socketSignalValue5, deltaTime),
                             (MathGateOperation)CustomMathOperation.Log => socketSignalValue4 > 0.0 && !double.IsInfinity(socketSignalValue4) && socketSignalValue5 > 0.0 && socketSignalValue5 != 1.0 && !double.IsInfinity(socketSignalValue5) ? Math.Log(socketSignalValue4, socketSignalValue5) : 0.0,
+                            (MathGateOperation)CustomMathOperation.Or => (socketSignalValue4 > 0.0 || socketSignalValue5 > 0.0) ? 1.0 : 0.0,
+                            (MathGateOperation)CustomMathOperation.Xor => ((socketSignalValue4 > 0.0) ^ (socketSignalValue5 > 0.0)) ? 1.0 : 0.0,
+                            (MathGateOperation)CustomMathOperation.Nand => (socketSignalValue4 > 0.0 && socketSignalValue5 > 0.0) ? 0.0 : 1.0,
+                            (MathGateOperation)CustomMathOperation.Nor => (socketSignalValue4 <= 0.0 && socketSignalValue5 <= 0.0) ? 1.0 : 0.0,
+                            (MathGateOperation)CustomMathOperation.NotEuqal => socketSignalValue4 != socketSignalValue5 ? 1.0 : 0.0,
+                            (MathGateOperation)CustomMathOperation.Hypot => Math.Sqrt((socketSignalValue4 * socketSignalValue4) + (socketSignalValue5 * socketSignalValue5)),
+                            (MathGateOperation)CustomMathOperation.Deadband => Math.Abs(socketSignalValue4) < Math.Abs(socketSignalValue5) ? 0.0 : socketSignalValue4,
+                            (MathGateOperation)CustomMathOperation.SchmittTrigger => socketSignalValue4 > socketSignalValue5 ? 1.0 : (socketSignalValue4 < -Math.Abs(socketSignalValue5) ? 0.0 : (mathGateState.Output > 0.0 ? 1.0 : 0.0)),
                             _ => 0.0,
                         };
                         MathGateState state5 = mathGateState with
@@ -721,7 +813,6 @@ namespace MoreMath
 
         public static void Update()
         {
-            // Nur alle 5 Sekunden prüfen, nicht in jedem Frame.
             if (Time.realtimeSinceStartup < nextCheck)
                 return;
 
@@ -751,7 +842,6 @@ namespace MoreMath
                 if (!material.HasProperty("_Albedo"))
                     continue;
 
-                // Bereits ersetzte Texturen nicht erneut setzen.
                 if (material.GetTexture("_Albedo") == replacement)
                     continue;
 
@@ -880,8 +970,6 @@ namespace MoreMath
                     }
                     else
                     {
-                        // Beim ersten erkannten Einschalten
-                        // beginnt die Zeit bei null.
                         timer.Elapsed = timer.PreviousInput
                             ? timer.Elapsed + dt
                             : 0.0;
@@ -898,8 +986,6 @@ namespace MoreMath
                     }
                     else if (timer.Output)
                     {
-                        // Beim ersten erkannten Abschalten
-                        // beginnt der Nachlauf bei null.
                         timer.Elapsed = timer.PreviousInput
                             ? 0.0
                             : timer.Elapsed + dt;
@@ -920,6 +1006,606 @@ namespace MoreMath
             timer.PreviousInput = input;
 
             return timer.Output ? 1.0 : 0.0;
+        }
+    }
+
+    public class NativeOperatorSelectorUI : MonoBehaviour, IClosableMenu
+    {
+        private const int PreferredColumns = 6;
+        private const float WindowScale = 1f;
+        private const bool DebugHierarchy = false;
+        private const float CellScale = 1.2f;
+        private const float FrameMargin = 24f;
+        private const float TitleGap = -800f;
+
+        private static NativeOperatorSelectorUI _instance;
+        private GameObject _window;
+        private bool _isOpen;
+        private MenuTracker _menuTracker;
+        private Core.Events.BoolGameEvent _buildMenuToggled;
+
+        private bool _isMathGate;
+        private PartContext _currentPartContext;
+        private IShipInteractionNetworkService _interactionService;
+        private List<InputActionMap> _disabledActionMaps = new List<InputActionMap>();
+        private int _openFrame = -1;
+
+        private Vector2 _cellSize;
+        private TMP_FontAsset _gameFont;
+
+        public struct OpInfo
+        {
+            public byte Id;
+            public string Name;
+            public string Symbol;
+
+            public OpInfo(byte id, string name, string symbol)
+            {
+                Id = id;
+                Name = name;
+                Symbol = symbol;
+            }
+        }
+
+        public static readonly OpInfo[] MathGateOps = new OpInfo[]
+        {
+            new OpInfo(0, "Multiply", "*"),
+            new OpInfo(1, "Add", "+"),
+            new OpInfo(2, "Subtract", "-"),
+            new OpInfo(3, "Divide", "÷"),
+            new OpInfo(4, "Min", "Min"),
+            new OpInfo(5, "Max", "Max"),
+            new OpInfo(6, "Atan2", "Atan2"),
+            new OpInfo(7, "Less Than", "<"),
+            new OpInfo(8, "Greater Than", ">"),
+            new OpInfo(9, "Equal", "="),
+            new OpInfo((byte)CustomMathOperation.Power, "Power", "^"),
+            new OpInfo((byte)CustomMathOperation.Round, "Round", "Round"),
+            new OpInfo((byte)CustomMathOperation.LesserSameThan, "Less Equal", "≤"),
+            new OpInfo((byte)CustomMathOperation.GreaterSameThan, "Greater Equal", "≥"),
+            new OpInfo((byte)CustomMathOperation.Rest, "Modulo", "%"),
+            new OpInfo((byte)CustomMathOperation.Clamp, "Clamp", "Clamp"),
+            new OpInfo((byte)CustomMathOperation.RS, "RS Latch", "RS"),
+            new OpInfo((byte)CustomMathOperation.SR, "SR Latch", "SR"),
+            new OpInfo((byte)CustomMathOperation.OnDelay, "On-Delay", "TON"),
+            new OpInfo((byte)CustomMathOperation.OffDelay, "Off-Delay", "TOF"),
+            new OpInfo((byte)CustomMathOperation.Log, "Logarithm", "Log"),
+            new OpInfo((byte)CustomMathOperation.Or, "OR", "OR"),
+            new OpInfo((byte)CustomMathOperation.Xor, "XOR", "XOR"),
+            new OpInfo((byte)CustomMathOperation.Nand, "NAND", "NAND"),
+            new OpInfo((byte)CustomMathOperation.Nor, "NOR", "NOR"),
+            new OpInfo((byte)CustomMathOperation.NotEuqal, "Not Equal", "≠"),
+            new OpInfo((byte)CustomMathOperation.Hypot, "Hypotenuse", "Hypot"),
+            new OpInfo((byte)CustomMathOperation.Deadband, "Deadband", "Deadband"),
+            new OpInfo((byte)CustomMathOperation.SchmittTrigger, "Schmitt Trigger", "Schmitt")
+        };
+
+        public static readonly OpInfo[] SignalProcessorOps = new OpInfo[]
+        {
+            new OpInfo(0, "Negation", "Neg"),
+            new OpInfo(1, "Square Root", "Sqrt"),
+            new OpInfo(2, "Absolute", "Abs"),
+            new OpInfo(3, "Delta", "Δ"),
+            new OpInfo(4, "Sine", "Sin"),
+            new OpInfo(5, "Cosine", "Cos"),
+            new OpInfo(6, "Tangent", "Tan"),
+            new OpInfo(7, "Arc Sine", "Asin"),
+            new OpInfo(8, "Arc Cosine", "Acos"),
+            new OpInfo(9, "Arc Tangent", "Atan"),
+            new OpInfo((byte)CustomSignalOperation.Floor, "Floor", "Floor"),
+            new OpInfo((byte)CustomSignalOperation.Toggle, "Toggle", "Toggle"),
+            new OpInfo((byte)CustomSignalOperation.OneWay, "OneWay", "->|"),
+            new OpInfo((byte)CustomSignalOperation.Ceil, "Ceil", "Ceil"),
+            new OpInfo((byte)CustomSignalOperation.Not, "NOT", "!"),
+            new OpInfo((byte)CustomSignalOperation.Sign, "Sign", "sgn"),
+            new OpInfo((byte)CustomSignalOperation.Integrator, "Integrator", "∫"),
+            new OpInfo((byte)CustomSignalOperation.Exp, "Exponential", "eˣ")
+        };
+
+        public static void Open(bool isMathGate, PartContext context, IShipInteractionNetworkService service)
+        {
+            if (_instance == null)
+            {
+                GameObject host = new GameObject("MoreMath_NativeUI_Host");
+                UnityEngine.Object.DontDestroyOnLoad(host);
+                _instance = host.AddComponent<NativeOperatorSelectorUI>();
+            }
+
+            if (_instance._isOpen)
+                _instance.Close();
+
+            _instance._isMathGate = isMathGate;
+            _instance._currentPartContext = context;
+            _instance._interactionService = service;
+            _instance.ShowMenu();
+        }
+
+        private void Update()
+        {
+            if (!_isOpen) return;
+            if (Time.frameCount == _openFrame) return;
+
+            var keyboard = Keyboard.current;
+            if (keyboard != null &&
+                (keyboard.escapeKey.wasPressedThisFrame || keyboard.fKey.wasPressedThisFrame))
+            {
+                Close();
+            }
+        }
+
+        private void ShowMenu()
+        {
+            if (_window != null) return;
+
+            GameObject staging = null;
+            try
+            {
+                BuildMenuActivator activator = Resources.FindObjectsOfTypeAll<BuildMenuActivator>()
+                    .FirstOrDefault(x => x != null && x.gameObject.scene.IsValid() && x.gameObject.scene.isLoaded);
+
+                if (activator == null)
+                {
+                    return;
+                }
+
+                GameObject prefab = Traverse.Create(activator).Field("buildMenuPrefab").GetValue<GameObject>();
+                Transform targetParent = activator.transform.parent;
+                if (prefab == null || targetParent == null) return;
+
+                _buildMenuToggled = Traverse.Create(activator).Field("buildMenuToggled")
+                    .GetValue<Core.Events.BoolGameEvent>();
+
+                staging = new GameObject("MoreMath_UI_Staging");
+                staging.SetActive(false);
+
+                _window = UnityEngine.Object.Instantiate(prefab, staging.transform, false);
+                _window.name = "MoreMathOperatorMenu";
+                _window.SetActive(false);
+
+                BuildMenu menu = _window.GetComponentInChildren<BuildMenu>(true);
+                if (menu == null)
+                    throw new InvalidOperationException("Prefab enthält kein BuildMenu.");
+
+                var fields = Traverse.Create(menu);
+                Transform tabs = fields.Field("tabButtonsContainer").GetValue<Transform>();
+                Transform content = fields.Field("tabPanelContainer").GetValue<Transform>();
+                BuildPartButton buttonPrefab = fields.Field("buttonPrefab").GetValue<BuildPartButton>();
+                BuildMenuPartInfo partInfo = fields.Field("partInfo").GetValue<BuildMenuPartInfo>();
+                GameObject rowPrefab = fields.Field("rowPrefab").GetValue<GameObject>();
+                GameObject tabPanelPrefab = fields.Field("tabPanelPrefab").GetValue<GameObject>();
+                GameColorPalette palette = fields.Field("colorPalette").GetValue<GameColorPalette>();
+
+                if (content == null || buttonPrefab == null)
+                    throw new InvalidOperationException("tabPanelContainer oder buttonPrefab fehlt.");
+
+                UnityEngine.Object.DestroyImmediate(menu);
+
+                _window.transform.SetParent(targetParent, false);
+
+                if (DebugHierarchy)
+                    DumpHierarchy(_window.transform, 0);
+
+                RectTransform panel = FindPanel(_window.transform, tabs, content);
+                RectTransform contentRect = content as RectTransform;
+
+                float headerHeight = 80f; 
+                float padding = 20f;    
+
+                if (contentRect != null)
+                {
+                    Rect c = GetRectIn(panel, contentRect);
+                    float measuredHeader = panel.rect.yMax - c.yMax;
+                    float measuredPad = c.xMin - panel.rect.xMin;
+
+                    if (measuredHeader > 10f && measuredHeader < 400f) headerHeight = measuredHeader;
+                    if (measuredPad > 4f && measuredPad < 150f) padding = measuredPad;
+                }
+
+                float titleBottom = 0f;
+                RectTransform tabsMeasure = tabs as RectTransform;
+
+                if (tabsMeasure != null)
+                {
+                    Rect t = GetRectIn(panel, tabsMeasure);
+                    titleBottom = panel.rect.yMax - t.yMin;
+                }
+
+                RectTransform btnRect = buttonPrefab.transform as RectTransform;
+                _cellSize = btnRect != null ? btnRect.rect.size : Vector2.zero;
+                if (_cellSize.x < 10f || _cellSize.y < 10f)
+                    _cellSize = new Vector2(120f, 120f);
+
+                _cellSize *= CellScale;
+                padding += FrameMargin;
+                headerHeight = Mathf.Max(headerHeight, titleBottom + TitleGap);
+
+                float spacingX = 8f;
+                float spacingY = 8f;
+
+                if (rowPrefab != null)
+                {
+                    var hlg = rowPrefab.GetComponent<HorizontalLayoutGroup>();
+                    if (hlg != null) spacingX = Mathf.Max(hlg.spacing, 2f);
+                }
+
+                if (tabPanelPrefab != null)
+                {
+                    var vlg = tabPanelPrefab.GetComponent<VerticalLayoutGroup>();
+                    if (vlg != null) spacingY = Mathf.Max(vlg.spacing, 2f);
+                }
+
+                TMP_Text prefabLabel = Traverse.Create(buttonPrefab).Field("text").GetValue<TMP_Text>();
+                _gameFont = prefabLabel != null ? prefabLabel.font : null;
+
+                RectTransform tabsRect = tabs as RectTransform;
+
+                if (tabs != null) tabs.gameObject.SetActive(false);
+                if (partInfo != null) partInfo.gameObject.SetActive(false);
+                content.gameObject.SetActive(false);
+
+                ScrollRect scroll = content.GetComponentInParent<ScrollRect>(true);
+                if (scroll != null && scroll.transform != panel && scroll.transform.IsChildOf(panel))
+                    scroll.gameObject.SetActive(false);
+
+                HideInputControls(_window);
+
+                OpInfo[] ops = _isMathGate ? MathGateOps : SignalProcessorOps;
+                int count = ops.Length;
+
+                RectTransform limitRect = targetParent as RectTransform;
+                float maxW = float.MaxValue;
+                float maxH = float.MaxValue;
+
+                if (limitRect != null && limitRect.rect.width > 100f && limitRect.rect.height > 100f)
+                {
+                    maxW = limitRect.rect.width * 0.92f;
+                    maxH = limitRect.rect.height * 0.88f;
+                }
+
+                int cols = Mathf.Min(PreferredColumns, count);
+                float gridW, gridH, panelW, panelH;
+
+                while (true)
+                {
+                    int rows = Mathf.CeilToInt(count / (float)cols);
+                    gridW = cols * _cellSize.x + (cols - 1) * spacingX;
+                    gridH = rows * _cellSize.y + (rows - 1) * spacingY;
+                    panelW = gridW + padding * 2f;
+                    panelH = headerHeight + gridH + padding;
+
+                    if (panelH <= maxH || cols >= count || panelW + _cellSize.x > maxW)
+                        break;
+
+                    cols++;
+                }
+
+                ContentSizeFitter fitter = panel.GetComponent<ContentSizeFitter>();
+                if (fitter != null) UnityEngine.Object.DestroyImmediate(fitter);
+
+                panel.anchorMin = new Vector2(0.5f, 0.5f);
+                panel.anchorMax = new Vector2(0.5f, 0.5f);
+                panel.pivot = new Vector2(0.5f, 0.5f);
+                panel.sizeDelta = new Vector2(panelW, panelH);
+                panel.anchoredPosition = Vector2.zero;
+
+                float fit = Mathf.Min(1f, maxW / panelW, maxH / panelH);
+                if (float.IsNaN(fit) || fit < 0.3f)
+                    fit = 1f;
+
+                panel.localScale = Vector3.one * (fit * WindowScale);
+
+                panel.localScale = Vector3.one * (fit * WindowScale);
+
+                CreateTitle(tabsRect, panel, palette);
+
+                GameObject gridObject = new GameObject("MoreMath_OpGrid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
+                gridObject.GetComponent<LayoutElement>().ignoreLayout = true;
+
+                RectTransform gridRect = gridObject.GetComponent<RectTransform>();
+                gridRect.SetParent(panel, false);
+                gridRect.anchorMin = new Vector2(0f, 1f);
+                gridRect.anchorMax = new Vector2(0f, 1f);
+                gridRect.pivot = new Vector2(0f, 1f);
+                gridRect.anchoredPosition = new Vector2(padding, -headerHeight);
+                gridRect.sizeDelta = new Vector2(gridW, gridH);
+                gridRect.SetAsLastSibling();
+
+                GridLayoutGroup grid = gridObject.GetComponent<GridLayoutGroup>();
+                grid.cellSize = _cellSize;
+                grid.spacing = new Vector2(spacingX, spacingY);
+                grid.padding = new RectOffset(0, 0, 0, 0);
+                grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+                grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+                grid.childAlignment = TextAnchor.UpperLeft;
+                grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                grid.constraintCount = cols;
+
+                foreach (var op in ops)
+                    CreateOperatorButton(buttonPrefab, gridRect, op);
+
+                _window.transform.SetAsLastSibling();
+                _window.SetActive(true);
+
+                _menuTracker = ServiceLocator.GetService<MenuTracker>();
+
+                DisableGameplayInputs();
+                _isOpen = true;
+                _openFrame = Time.frameCount;
+
+                if (_menuTracker != null)
+                    _menuTracker.TrackMenu(this);
+
+                if (_buildMenuToggled != null)
+                    _buildMenuToggled.Raise(true);
+            }
+            catch (Exception ex)
+            {
+                Close();
+            }
+            finally
+            {
+                if (staging != null)
+                    UnityEngine.Object.Destroy(staging);
+            }
+        }
+
+        private static RectTransform FindPanel(Transform root, Transform tabs, Transform content)
+        {
+            Transform result = null;
+
+            if (tabs != null)
+            {
+                var chain = new HashSet<Transform>();
+                for (Transform t = tabs; t != null; t = t.parent)
+                    chain.Add(t);
+
+                for (Transform t = content; t != null; t = t.parent)
+                {
+                    if (chain.Contains(t))
+                    {
+                        result = t;
+                        break;
+                    }
+                }
+            }
+
+            if (result == null || result == root)
+            {
+                Transform t = content;
+                while (t.parent != null && t.parent != root)
+                    t = t.parent;
+                result = t;
+            }
+
+            return (RectTransform)result;
+        }
+
+        private static Rect GetRectIn(RectTransform space, RectTransform target)
+        {
+            Vector3[] corners = new Vector3[4];
+            target.GetWorldCorners(corners);
+
+            float xMin = float.MaxValue, yMin = float.MaxValue;
+            float xMax = float.MinValue, yMax = float.MinValue;
+
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 p = space.InverseTransformPoint(corners[i]);
+                xMin = Mathf.Min(xMin, p.x);
+                yMin = Mathf.Min(yMin, p.y);
+                xMax = Mathf.Max(xMax, p.x);
+                yMax = Mathf.Max(yMax, p.y);
+            }
+
+            return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+        }
+
+        private void CreateTitle(RectTransform tabsRect, RectTransform panel, GameColorPalette palette)
+        {
+            GameObject titleObj = new GameObject("MoreMath_MenuTitle", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            titleObj.GetComponent<LayoutElement>().ignoreLayout = true;
+
+            RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+            Transform parent = tabsRect != null && tabsRect.parent != null ? tabsRect.parent : panel;
+            titleRect.SetParent(parent, false);
+
+            if (tabsRect != null)
+            {
+                titleRect.anchorMin = tabsRect.anchorMin;
+                titleRect.anchorMax = tabsRect.anchorMax;
+                titleRect.pivot = tabsRect.pivot;
+                titleRect.anchoredPosition = tabsRect.anchoredPosition;
+                titleRect.sizeDelta = tabsRect.sizeDelta;
+            }
+            else
+            {
+                titleRect.anchorMin = new Vector2(0f, 1f);
+                titleRect.anchorMax = new Vector2(1f, 1f);
+                titleRect.pivot = new Vector2(0.5f, 1f);
+                titleRect.anchoredPosition = new Vector2(0f, -15f);
+                titleRect.sizeDelta = new Vector2(-40f, 40f);
+            }
+
+            TextMeshProUGUI titleText = titleObj.GetComponent<TextMeshProUGUI>();
+            if (_gameFont != null) titleText.font = _gameFont;
+            titleText.text = _isMathGate ? "SIGNAL COMBINATOR — OPERATIONS" : "SIGNAL PROCESSOR — OPERATIONS";
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.enableAutoSizing = false;
+            titleText.fontSize = Mathf.Clamp(_cellSize.y * 0.2f, 18f, 40f);
+            titleText.alignment = TextAlignmentOptions.MidlineLeft;
+            titleText.enableWordWrapping = false;
+            titleText.overflowMode = TextOverflowModes.Overflow;
+            titleText.margin = new Vector4(12f, 0f, 0f, 0f);
+            titleText.raycastTarget = false;
+            titleText.color = palette != null ? palette.uiLineColor : new Color(0.35f, 0.85f, 1.0f);
+
+            titleObj.transform.SetAsLastSibling();
+        }
+
+        private void CreateOperatorButton(BuildPartButton prefab, Transform parent, OpInfo op)
+        {
+            BuildPartButton originalLogic = UnityEngine.Object.Instantiate(prefab, parent, false);
+            GameObject btnObj = originalLogic.gameObject;
+
+            TMP_Text oldLabel = Traverse.Create(originalLogic).Field("text").GetValue<TMP_Text>();
+            if (oldLabel != null)
+                UnityEngine.Object.DestroyImmediate(oldLabel.gameObject);
+            UnityEngine.Object.DestroyImmediate(originalLogic);
+
+            foreach (RawImage raw in btnObj.GetComponentsInChildren<RawImage>(true))
+                raw.gameObject.SetActive(false);
+
+            UnityEngine.UI.Button button = btnObj.GetComponent<UnityEngine.UI.Button>();
+            if (button != null)
+            {
+                button.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
+                byte opId = op.Id;
+                button.onClick.AddListener(() => SelectOperation(opId));
+            }
+
+            float h = _cellSize.y;
+            float symbolMax = h * 0.34f;
+            float nameMax = h * 0.17f;
+
+            GameObject symbolObj = new GameObject("MoreMath_SymbolText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            symbolObj.transform.SetParent(btnObj.transform, false);
+
+            RectTransform symRect = symbolObj.GetComponent<RectTransform>();
+            symRect.anchorMin = new Vector2(0f, 0.42f);
+            symRect.anchorMax = new Vector2(1f, 0.96f);
+            symRect.offsetMin = new Vector2(4f, 0f);
+            symRect.offsetMax = new Vector2(-4f, 0f);
+
+            TextMeshProUGUI symText = symbolObj.GetComponent<TextMeshProUGUI>();
+            symText.text = op.Symbol;
+            symText.alignment = TextAlignmentOptions.Center;
+            symText.fontStyle = FontStyles.Bold;
+            symText.enableWordWrapping = false;
+            symText.enableAutoSizing = true; 
+            symText.fontSizeMax = symbolMax;
+            symText.fontSizeMin = symbolMax * 0.45f;
+            symText.raycastTarget = false;
+            symText.color = new Color(0.35f, 0.85f, 1.0f);
+
+            GameObject nameObj = new GameObject("MoreMath_NameText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            nameObj.transform.SetParent(btnObj.transform, false);
+
+            RectTransform nameRect = nameObj.GetComponent<RectTransform>();
+            nameRect.anchorMin = new Vector2(0f, 0.04f);
+            nameRect.anchorMax = new Vector2(1f, 0.42f);
+            nameRect.offsetMin = new Vector2(3f, 0f);
+            nameRect.offsetMax = new Vector2(-3f, 0f);
+
+            TextMeshProUGUI nameText = nameObj.GetComponent<TextMeshProUGUI>();
+            if (_gameFont != null) nameText.font = _gameFont;
+            nameText.text = op.Name;
+            nameText.fontStyle = FontStyles.Bold;
+            nameText.alignment = TextAlignmentOptions.Center;
+            nameText.enableWordWrapping = true;
+            nameText.enableAutoSizing = true;
+            nameText.fontSizeMax = nameMax;
+            nameText.fontSizeMin = nameMax * 0.75f;
+            nameText.overflowMode = TextOverflowModes.Overflow;
+            nameText.raycastTarget = false;
+            nameText.color = Color.white;
+
+            btnObj.SetActive(true);
+        }
+
+        private void SelectOperation(byte operationId)
+        {
+            if (_interactionService != null)
+            {
+                _interactionService.ChangeMathOperation(new MathOperationNetworkRequest
+                {
+                    ShipId = _currentPartContext.ShipId,
+                    PartId = _currentPartContext.PartId,
+                    OperationId = operationId
+                });
+            }
+            Close();
+        }
+
+        private static void HideInputControls(GameObject root)
+        {
+            foreach (TMP_InputField input in root.GetComponentsInChildren<TMP_InputField>(true))
+                input.gameObject.SetActive(false);
+            foreach (TMP_Dropdown dropdown in root.GetComponentsInChildren<TMP_Dropdown>(true))
+                dropdown.gameObject.SetActive(false);
+            foreach (UnityEngine.UI.InputField input in root.GetComponentsInChildren<UnityEngine.UI.InputField>(true))
+                input.gameObject.SetActive(false);
+            foreach (UnityEngine.UI.Dropdown dropdown in root.GetComponentsInChildren<UnityEngine.UI.Dropdown>(true))
+                dropdown.gameObject.SetActive(false);
+        }
+
+        private static void DumpHierarchy(Transform t, int depth)
+        {
+            RectTransform rt = t as RectTransform;
+            string info = rt != null
+                ? $" size={rt.rect.size} aMin={rt.anchorMin} aMax={rt.anchorMax} pos={rt.anchoredPosition}"
+                : "";
+
+            for (int i = 0; i < t.childCount; i++)
+                DumpHierarchy(t.GetChild(i), depth + 1);
+        }
+
+        public void Close()
+        {
+            bool wasOpen = _isOpen;
+            _isOpen = false;
+
+            RestoreGameplayInputs();
+
+            if (_window != null)
+            {
+                UnityEngine.Object.Destroy(_window);
+                _window = null;
+            }
+
+            if (_menuTracker != null)
+            {
+                _menuTracker.UntrackMenu(this);
+                _menuTracker = null;
+            }
+
+            if (wasOpen && _buildMenuToggled != null)
+            {
+                _buildMenuToggled.Raise(false);
+                _buildMenuToggled = null;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            Close();
+        }
+
+        private void DisableGameplayInputs()
+        {
+            _disabledActionMaps.Clear();
+            foreach (var pi in Resources.FindObjectsOfTypeAll<PlayerInput>())
+            {
+                if (pi == null || pi.actions == null) continue;
+
+                foreach (var map in pi.actions.actionMaps)
+                {
+                    if (map.enabled && !map.name.Equals("UI", StringComparison.OrdinalIgnoreCase))
+                    {
+                        map.Disable();
+                        _disabledActionMaps.Add(map);
+                    }
+                }
+            }
+        }
+
+        private void RestoreGameplayInputs()
+        {
+            foreach (var map in _disabledActionMaps)
+            {
+                if (map != null)
+                    map.Enable();
+            }
+            _disabledActionMaps.Clear();
         }
     }
 }

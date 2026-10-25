@@ -2,8 +2,8 @@
     "id": "MoreMath",
     "name": "More Math",
     "author": "MausCD",
-    "version": "1.2.1",
-    "description": "Adds More Math Operations and a selection menu \n\n Signal Combinator: \n ^ - Power \n Round \n % - Modulus \n ≤ - Less than or equal to \n ≥ - Greater than or equal to \n ≠ - Not equal \n Clamp \n Hypot \n Deadband \n Log \n OR / XOR / NAND / NOR \n RS / SR \n Schmitt Trigger \n TON / TOF \n\n Signal Processor: \n Floor / Ceil \n Sign \n eˣ - Exp \n NOT \n OneWay \n Toggle \n ∫ - Integrator \n\n Operation selection menu instead of cycling (can be disabled) \n\n Every Player needs this Mod",
+    "version": "1.3.0",
+    "description": "Adds More Math Operations and a selection menu \n\n Signal Combinator: \n ^ - Power \n Round \n % - Modulus \n ≤ - Less than or equal to \n ≥ - Greater than or equal to \n ≠ - Not equal \n Clamp \n Hypot \n Deadband \n Log \n OR / XOR / NAND / NOR \n RS / SR \n Schmitt Trigger \n TON / TOF \n\n Signal Processor: \n Floor / Ceil \n Sign \n eˣ - Exp \n NOT \n OneWay \n Toggle \n ∫ - Integrator \n Timer \n Counter \n\n Operation selection menu instead of cycling (can be disabled) \n\n Every Player needs this Mod",
     "thumbnail": "thumbnail.png",
     "images": [
         "menu-1.png",

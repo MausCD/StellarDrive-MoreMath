@@ -54,7 +54,7 @@ namespace MoreMath
         public const string Description = "Adds More Math Operations";
         public const string Author = "MausCD";
         public const string Company = null;
-        public const string Version = "1.2.0";
+        public const string Version = "1.3.0";
         public const string DownloadLink = "https://github.com/MausCD/StellarDrive-MoreMath/releases";
     }
 
@@ -115,6 +115,8 @@ namespace MoreMath
         Hypot = 26,
         Deadband = 27,
         SchmittTrigger = 28,
+        Timer = 29,
+        Counter = 30,
     }
 
     public enum CustomSignalOperation : byte
@@ -321,6 +323,12 @@ namespace MoreMath
             {
                 return;
             }
+            byte mathOp = (byte)mathState.Operation;
+            string mathName = Enum.IsDefined(typeof(CustomMathOperation), mathOp)
+                ? ((CustomMathOperation)mathOp).ToString()
+                : ((MathGateOperation)mathOp).ToString();
+
+            OperationTextures.Apply(__instance, mathName);
 
             switch ((CustomMathOperation)mathState.Operation)
             {
@@ -381,7 +389,15 @@ namespace MoreMath
                 case CustomMathOperation.SchmittTrigger:
                     ___textField.text = "Schmitt";
                     break;
-            }
+                case CustomMathOperation.Timer:
+                    ___textField.text = "Timer";
+                    break;
+                case CustomMathOperation.Counter:
+                    ___textField.text = "Counter";
+                    break;
+            }           
+
+
         }
     }
 
@@ -395,6 +411,12 @@ namespace MoreMath
         {
             if (state is not SignalProcessorState processorState)
                 return;
+            byte procOp = (byte)processorState.Operation;
+            string procName = Enum.IsDefined(typeof(CustomSignalOperation), procOp)
+                ? ((CustomSignalOperation)procOp).ToString()
+                : ((SignalProcessorOperation)procOp).ToString();
+
+            OperationTextures.Apply(__instance, procName);
 
             string text;
 
@@ -574,6 +596,8 @@ namespace MoreMath
                             (MathGateOperation)CustomMathOperation.Hypot => Math.Sqrt((socketSignalValue4 * socketSignalValue4) + (socketSignalValue5 * socketSignalValue5)),
                             (MathGateOperation)CustomMathOperation.Deadband => Math.Abs(socketSignalValue4) < Math.Abs(socketSignalValue5) ? 0.0 : socketSignalValue4,
                             (MathGateOperation)CustomMathOperation.SchmittTrigger => socketSignalValue4 > socketSignalValue5 ? 1.0 : (socketSignalValue4 < -Math.Abs(socketSignalValue5) ? 0.0 : (mathGateState.Output > 0.0 ? 1.0 : 0.0)),
+                            (MathGateOperation)CustomMathOperation.Timer => socketSignalValue5 > 0.0 ? 0.0 : socketSignalValue4 > 0.0 ? mathGateState.Output + (double)deltaTime : mathGateState.Output,
+                            (MathGateOperation)CustomMathOperation.Counter => CombinatorCounters.Evaluate(part, mathGateState.Output, socketSignalValue4, socketSignalValue5),
                             _ => 0.0,
                         };
                         MathGateState state5 = mathGateState with
@@ -622,15 +646,17 @@ namespace MoreMath
     "Multiply (×), Add (+), Subtract (−), Divide (÷), " +
     "Min, Max, Atan2, Less than (<), Greater than (>), Equal (=).\n" +
     "\nMoreMath:\n" +
-    "Power (^), Round, Less or equal (≤), Greater or equal (≥), " +
-    "Remainder (%), Clamp , RS , SR , TON , TOF , Log";
+    "Power (^), Round, Less or equal (≤), Greater or equal (≥), Not equal (≠), " +
+    "Remainder (%), Clamp, Hypot, Deadband, Log, " +
+    "OR, XOR, NAND, NOR, RS, SR, Schmitt Trigger, TON, TOF, Timer , Counter";
             }
             else if (stateClass == typeof(SignalProcessorState).FullName ||
                      settings.fullLabel == "Signal Processor")
             {
                 addition =
+                    addition =
                     "\n\nMoreMath operations:\n" +
-                    "Floor , Toggle";
+                    "Floor, Ceil, Sign, Exp (eˣ), NOT, OneWay, Toggle, Integrator (∫)";
             }
             else
             {
@@ -856,18 +882,12 @@ namespace MoreMath
                 var assembly =
                     typeof(LogicGatesTextureReplacement).Assembly;
 
-                string resourceName = assembly
-                    .GetManifestResourceNames()
-                    .FirstOrDefault(name =>
-                        name == "8304ebbf.png" ||
-                        name.EndsWith(
-                            ".8304ebbf.png",
-                            StringComparison.OrdinalIgnoreCase));
+                string resourceName = assembly.GetManifestResourceNames().FirstOrDefault(name => name == "OperatorReplacment-Base.png" || name.EndsWith( ".OperatorReplacment-Base.png", StringComparison.OrdinalIgnoreCase));
 
                 if (resourceName == null)
                 {
                     MelonLogger.Error(
-                        "8304ebbf.png not found. " +
+                        "OperatorReplacment-Base.png not found. " +
                         "Set its Build Action to Embedded Resource.");
                     return;
                 }
@@ -889,7 +909,7 @@ namespace MoreMath
                 if (!ImageConversion.LoadImage(texture, buffer.ToArray()))
                 {
                     UnityEngine.Object.Destroy(texture);
-                    MelonLogger.Error("Could not decode 8304ebbf.png.");
+                    MelonLogger.Error("Could not decode OperatorReplacment-Base.png.");
                     return;
                 }
 
@@ -903,6 +923,113 @@ namespace MoreMath
             {
                 MelonLogger.Error(
                     $"Texture loading failed: {exception}");
+            }
+        }
+    }
+
+    internal static class OperationTextures
+    {
+        private static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>();
+        private static readonly MaterialPropertyBlock Block = new MaterialPropertyBlock();
+
+        private static Texture2D Get(string fileName)
+        {
+            if (Cache.TryGetValue(fileName, out var cached))
+                return cached;
+
+            Texture2D texture = null;
+
+            try
+            {
+                var assembly = typeof(OperationTextures).Assembly;
+                string resource = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(n => n == fileName ||
+                                         n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase));
+
+                if (resource != null)
+                {
+                    using var stream = assembly.GetManifestResourceStream(resource);
+                    using var buffer = new System.IO.MemoryStream();
+                    stream.CopyTo(buffer);
+
+                    texture = new Texture2D(2, 2);
+                    if (ImageConversion.LoadImage(texture, buffer.ToArray()))
+                    {
+                        texture.name = "MoreMath_" + fileName;
+                        texture.Compress(true);
+                        texture.Apply(true, true);
+                        UnityEngine.Object.DontDestroyOnLoad(texture);
+                    }
+                    else
+                    {
+                        UnityEngine.Object.Destroy(texture);
+                        texture = null;
+                        MelonLogger.Error("Could not decode " + fileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Error("Texture " + fileName + " failed: " + ex);
+            }
+
+            Cache[fileName] = texture;
+            return texture;
+        }
+
+        private const string FilePrefix = "OperatorReplacment-";
+        private static readonly Dictionary<string, string> TextureMap = new Dictionary<string, string>
+        {
+            // I / P / Q
+            { "Round",          "IPQ" },
+            { "Clamp",          "IPQ" },
+            { "Deadband",       "IPQ" },
+            { "Log",            "IPQ" },
+            { "SchmittTrigger", "IPQ" },
+
+            // I / PT / Q
+            { "OnDelay",        "IPTQ" },
+            { "OffDelay",       "IPTQ" },
+
+            // I / R / Q
+            { "Timer",          "IRQ" },
+            { "RS",             "RSQ1" },
+            { "SR",             "SRQ1" },
+
+            // CU / P / CV
+            { "Counter",        "CRCV" },
+        };
+
+        public static void Apply(Component visuals, string operationName)
+        {
+            Texture2D texture = null;
+
+            if (MoreMath.ReplaceTexture.Value &&
+                !string.IsNullOrEmpty(operationName) &&
+                TextureMap.TryGetValue(operationName, out string file))
+            {
+                texture = Get(file + ".png");
+            }
+
+            foreach (Renderer renderer in visuals.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] materials = renderer.sharedMaterials;
+
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Material m = materials[i];
+                    if (m == null || !m.name.StartsWith("LogicGates") || !m.HasProperty("_Albedo"))
+                        continue;
+
+                    renderer.GetPropertyBlock(Block, i);
+
+                    if (texture != null)
+                        Block.SetTexture("_Albedo", texture);
+                    else
+                        Block.Clear();
+
+                    renderer.SetPropertyBlock(Block, i);
+                }
             }
         }
     }
@@ -1009,6 +1136,39 @@ namespace MoreMath
         }
     }
 
+    internal static class CombinatorCounters
+    {
+        private sealed class CounterState
+        {
+            public int PreviousDirection;
+        }
+
+        private static readonly
+            System.Runtime.CompilerServices.ConditionalWeakTable<
+                StatefulPart, CounterState> States = new();
+
+        public static double Evaluate(StatefulPart part, double current, double a, double b)
+        {
+            CounterState state = States.GetOrCreateValue(part);
+
+            int direction = a > 0.0 ? 1 : (a < 0.0 ? -1 : 0);
+
+            double result = current;
+
+            if (b > 0.0)
+            {
+                result = 0.0; 
+            }
+            else if (direction != 0 && direction != state.PreviousDirection)
+            {
+                result = current + direction;
+            }
+
+            state.PreviousDirection = direction;
+            return result;
+        }
+    }
+
     public class NativeOperatorSelectorUI : MonoBehaviour, IClosableMenu
     {
         private const int PreferredColumns = 6;
@@ -1077,7 +1237,9 @@ namespace MoreMath
             new OpInfo((byte)CustomMathOperation.NotEuqal, "Not Equal", "≠"),
             new OpInfo((byte)CustomMathOperation.Hypot, "Hypotenuse", "Hypot"),
             new OpInfo((byte)CustomMathOperation.Deadband, "Deadband", "Deadband"),
-            new OpInfo((byte)CustomMathOperation.SchmittTrigger, "Schmitt Trigger", "Schmitt")
+            new OpInfo((byte)CustomMathOperation.SchmittTrigger, "Schmitt Trigger", "Schmitt"),
+            new OpInfo((byte)CustomMathOperation.Timer, "Timer", "Timer"),
+            new OpInfo((byte)CustomMathOperation.Counter, "Counter", "Counter")
         };
 
         public static readonly OpInfo[] SignalProcessorOps = new OpInfo[]

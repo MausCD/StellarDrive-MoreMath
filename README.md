@@ -36,6 +36,8 @@ Interacting with a Signal Combinator or Signal Processor opens a selection menu 
 - Schmitt Trigger: Switches the output to 1 when A rises above B and back to 0 when A falls below −|B|. Between the two thresholds, the output keeps its current value.
 - OnDelay (TON): Outputs 1 after A has remained active continuously for B seconds. When A becomes inactive, the output immediately returns to 0 and the timer resets.
 - OffDelay (TOF): Outputs 1 immediately when A becomes active. When A becomes inactive, the output remains 1 for B seconds before returning to 0. Reactivating A cancels the pending switch-off.
+- Timer: Counts the seconds A has been active. The value is held while A is inactive. B resets the timer to 0.
+- Counter: Counts up by 1 each time A becomes positive and down by 1 each time A becomes negative. Holding A does not count repeatedly. B resets the counter to 0.
 
 ### Signal Processor
 
@@ -48,11 +50,21 @@ Interacting with a Signal Combinator or Signal Processor opens a selection menu 
 - Toggle: Switches the output between 0 and 1 whenever the input changes from inactive to active. Holding the input active does not repeatedly switch the output.
 - Integrator (∫): Adds the input multiplied by the elapsed time to the output every update. A constant input of 1 increases the output by 1 per second.
 
-For OR, XOR, NAND, NOR, NOT, RS, SR, Toggle, OnDelay, and OffDelay, positive signal input values count as active. Zero and negative values count as inactive.
+For OR, XOR, NAND, NOR, NOT, RS, SR, Toggle, OnDelay, OffDelay, Timer, and the reset input of Counter, positive signal input values count as active. Zero and negative values count as inactive.
 
 ## Custom Texture
 
 MoreMath includes an optional texture replacement that adds I (Input) and Q (Output) labels to the components, making signal connections easier to identify.
+
+Operations with special inputs get matching labels automatically:
+
+| Labels | Operations |
+|---|---|
+| I / P / Q (Input, Parameter, Output) | Round, Clamp, Deadband, Log, Schmitt Trigger |
+| I / PT / Q (Input, Preset Time, Output) | OnDelay, OffDelay |
+| I / R / Q (Input, Reset, Output) | Timer, RS, SR |
+| C / R / CV (Count, Reset, Current Value) | Counter |
+| I1 / I2 / Q1 | All other operations |
 
 ## Configuration
 
@@ -62,7 +74,7 @@ The following options can be adjusted in the Melon Preferences:
 |---|---|---|
 | `EnableMenu` | `true` | Opens the operation selection menu on interaction. When disabled, each interaction cycles to the next operation. |
 | `SaveStatus` | `true` | Enables or disables saving and restoring RS, SR, and Toggle states. |
-| `ReplaceTexture` | `true` | Enables or disables the custom texture with I (Input) and Q (Output) labels. |
+| `ReplaceTexture` | `true` | Enables or disables the custom textures with input and output labels. |
 
 ## Persistent States
 
@@ -70,7 +82,7 @@ When `SaveStatus` is enabled in the Melon Preferences, the mod saves and restore
 
 These states use a mod-specific encoding in the save data. Keep MoreMath installed when loading saves that use this feature.
 
-OnDelay and OffDelay timer progress is not saved. Their timers reset when a game is loaded. Schmitt Trigger and Integrator states are not covered by this feature.
+OnDelay and OffDelay timer progress is not saved. Their timers reset when a game is loaded. Schmitt Trigger, Integrator, Timer, and Counter values are not covered by this feature.
 
 ## Usage
 
@@ -132,6 +144,25 @@ Example with B = 0.1: Small values such as 0.05 or −0.08 produce 0; values suc
 - Deactivating A starts the switch-off delay.
 - Reactivating A during that delay keeps the output on and cancels the pending switch-off.
 
+### Timer
+
+- Input A: Signal to measure.
+- Input B: Reset.
+- A active: The output increases by 1 per second.
+- A inactive: The output keeps its current value.
+- B active: The output is reset to 0 and stays there while B is active.
+
+Example: Keep A active for 3 seconds, pause, then keep it active for 2 more seconds. The output shows 5.
+
+### Counter
+
+- Input A: Count pulses. A positive pulse counts up, a negative pulse counts down.
+- Input B: Reset.
+- Only the change of A is counted. Return A to 0 before the next pulse.
+- B active: The output is reset to 0. Reset wins when both inputs are active.
+
+Example: Three positive pulses followed by one negative pulse produce 2.
+
 ### Log
 
 - Input A: Value.
@@ -171,4 +202,4 @@ Back up your saves before using the persistence feature.
 
 MoreMath stores state information in unused bits of the saved operation IDs. Other mods that modify these IDs or the same signal-processing methods may conflict with it.
 
-Persistence currently covers RS, SR, and Toggle only, not OnDelay or OffDelay timer progress, Schmitt Trigger, or Integrator states.
+Persistence currently covers RS, SR, and Toggle only, not OnDelay or OffDelay timer progress, Schmitt Trigger, Integrator, Timer, or Counter values.
